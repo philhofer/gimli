@@ -1,8 +1,8 @@
 package gimli
 
 import (
-	"hash"
 	"encoding/binary"
+	"hash"
 )
 
 const HashBlockSize = 16
@@ -65,7 +65,7 @@ func (h *Hash) Reset() {
 // xor a single byte into the state at a given position
 func xorbyte(dst *[StateWords]uint32, v byte, pos uint) {
 	// TODO: remove endianness assumptions here
-	dst[(pos&^3)>>2] ^= uint32(v) << ((pos&3)<<3)
+	dst[(pos&^3)>>2] ^= uint32(v) << ((pos & 3) << 3)
 }
 
 // finalize copies the state into a new state that
@@ -75,7 +75,7 @@ func (h *Hash) finalize(dst *[StateWords]uint32) {
 
 	// input gets a trailing ^=0x1f;
 	// last byte of the block gets a trailing ^=0x80
-	xorbyte(dst, 0x1f, uint(h.in & (HashBlockSize - 1)))
+	xorbyte(dst, 0x1f, uint(h.in&(HashBlockSize-1)))
 	xorbyte(dst, 0x80, HashBlockSize-1)
 	round(dst)
 }
@@ -102,7 +102,9 @@ func (h *Hash) Write(b []byte) (int, error) {
 	}
 
 	aligned := len(b) >> 4
-	hashrounds(&h.state, b, aligned)
+	if aligned > 0 {
+		hashrounds(&h.state, b, aligned)
+	}
 	b = b[aligned<<4:]
 	for i := range b {
 		xorbyte(&h.state, b[i], uint(i))
@@ -118,9 +120,9 @@ func put32(dst []byte, v uint32) {
 
 // copy the first 16 bytes of state into dst
 func statehead(dst []byte, state *[StateWords]uint32) {
-	put32(dst[0 :], state[0])
-	put32(dst[4 :], state[1])
-	put32(dst[8 :], state[2])
+	put32(dst[0:], state[0])
+	put32(dst[4:], state[1])
+	put32(dst[8:], state[2])
 	put32(dst[12:], state[3])
 }
 
@@ -133,8 +135,13 @@ func (h *Hash) Sum(b []byte) []byte {
 	h.finalize(&tmp)
 
 	outsize := h.Size()
-	aligned := (outsize+HashBlockSize-1)&^(HashBlockSize-1)
-	outbuf := make([]byte, aligned)
+	aligned := (outsize + HashBlockSize - 1) &^ (HashBlockSize - 1)
+	var outbuf []byte
+	if cap(b) >= aligned {
+		outbuf = b[:aligned]
+	} else {
+		outbuf = make([]byte, aligned)
+	}
 
 	// "squeeze"
 	// copy the first part of the state

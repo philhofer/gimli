@@ -1,11 +1,11 @@
 package gimli
 
 import (
-	"testing"
-	"io"
-	"encoding/hex"
 	"bytes"
+	"encoding/hex"
+	"io"
 	"strconv"
+	"testing"
 )
 
 func writeChunks(dst io.Writer, src []byte, size int) {
@@ -32,13 +32,12 @@ func writeChunks(dst io.Writer, src []byte, size int) {
 }
 
 func TestHash(t *testing.T) {
-	vectors := []struct{
+	vectors := []struct {
 		text, hexout string
 	}{
 		{
 			"There's plenty for the both of us, may the best Dwarf win.",
 			"4afb3ff784c7ad6943d49cf5da79facfa7c4434e1ce44f5dd4b28f91a84d22c8",
-
 		},
 		{
 			"If anyone was to ask for my opinion, which I note they're not, I'd say we were taking the long way around.",
@@ -81,7 +80,7 @@ func TestHash(t *testing.T) {
 		// exercise writes at odd alignments
 		for _, size := range []int{
 			1, 3, 7, 9, 13, 15,
-		}{
+		} {
 			h.Reset()
 			writeChunks(&h, []byte(in), size)
 			out = h.Sum(out[:0])
@@ -104,9 +103,10 @@ func BenchmarkHash(b *testing.B) {
 	data := make([]byte, sizes[len(sizes)-1])
 	for _, size := range sizes {
 		b.Run(strconv.Itoa(size), func(b *testing.B) {
+			b.ReportAllocs()
 			b.SetBytes(int64(size))
 			var h Hash
-			for i := 0; i<b.N; i++ {
+			for i := 0; i < b.N; i++ {
 				h.Reset()
 				h.Write(data[:size])
 				h.Sum(data[:0])

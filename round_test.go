@@ -12,7 +12,7 @@ func TestRound(t *testing.T) {
 	}
 	round(&state)
 	want := [StateWords]uint32{
-		0xba11c85a, 0x91bad119,	0x380ce880, 0xd24c2c68,
+		0xba11c85a, 0x91bad119, 0x380ce880, 0xd24c2c68,
 		0x3eceffea, 0x277a921c, 0x4f73a0bd, 0xda5a9cd8,
 		0x84b673f0, 0x34e52ff7, 0x9e2bef49, 0xf41bb8d6,
 	}
@@ -21,5 +21,12 @@ func TestRound(t *testing.T) {
 		if state[i] != want[i] {
 			t.Errorf("state[%d]: got %x, want %x", i, state[i], want[i])
 		}
+	}
+}
+
+func BenchmarkRound(b *testing.B) {
+	var state [StateWords]uint32
+	for i := 0; i < b.N; i++ {
+		round(&state)
 	}
 }
