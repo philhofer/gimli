@@ -2,12 +2,14 @@ package gimli
 
 import (
 	"encoding/binary"
+	"unsafe"
 )
 
 const (
-	StateSize  = 384 / 8
-	StateWords = StateSize / 4
+	stateBytes = 384 / 8
 )
+
+type state [stateBytes / 4]uint32
 
 var round = portableRound
 
@@ -17,18 +19,22 @@ func le32(b []byte) uint32 {
 	return binary.LittleEndian.Uint32(b)
 }
 
+func (s *state) bytes() *[stateBytes]byte {
+	return (*[stateBytes]byte)(unsafe.Pointer(s))
+}
+
 // mix blocks of 16 bytes into the state 'blocks' times
-func portableRounds(state *[StateWords]uint32, src []byte, blocks int) {
+func portableRounds(st *state, src []byte, blocks int) {
 	for i := 0; i < blocks; i++ {
-		state[0] ^= le32(src[(i*16)+0:])
-		state[1] ^= le32(src[(i*16)+4:])
-		state[2] ^= le32(src[(i*16)+8:])
-		state[3] ^= le32(src[(i*16)+12:])
-		round(state)
+		st[0] ^= le32(src[(i*16)+0:])
+		st[1] ^= le32(src[(i*16)+4:])
+		st[2] ^= le32(src[(i*16)+8:])
+		st[3] ^= le32(src[(i*16)+12:])
+		round(st)
 	}
 }
 
-func portableRound(b *[StateWords]uint32) {
+func portableRound(b *state) {
 	for round := 24; round > 0; round-- {
 		for col := 0; col < 4; col++ {
 			x := b[col]

@@ -51,7 +51,7 @@ DATA coeffs<>+64(SB)/4, $0x9e377914
 DATA coeffs<>+80(SB)/4, $0x9e377918
 GLOBL coeffs<>(SB), RODATA|NOPTR, $96
 
-// func roundSSE(state *[12]uint32)
+// func roundAVX(state *[12]uint32)
 TEXT ·roundAVX(SB),NOSPLIT,$0
 	MOVQ  state+0(FP), SI
 	VMOVDQU 00(SI), X0

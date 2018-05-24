@@ -3,10 +3,10 @@
 package gimli
 
 //go:noescape
-func roundAVX(state *[StateWords]uint32)
+func roundAVX(st *state)
 
 //go:noescape
-func hashroundsAVX(state *[StateWords]uint32, src []byte, rounds int)
+func hashroundsAVX(st *state, src []byte, rounds int)
 
 func init() {
 	// TODO: test for presence of AVX

@@ -1,83 +1,60 @@
 package gimli
 
 import (
-	"encoding/binary"
 	"hash"
 )
 
-const HashBlockSize = 16
-
-// DefaultHashSize is the default size of the hash function.
-const DefaultHashSize = 32
-
 var _ hash.Hash = &Hash{}
 
-// Hash is a Gimli-based hash function that can
-// output arbitrary-length hashes using a "sponge"
-// construction with the Gimli permutation.
-//
-// The zero value of Hash is safe to use; it
-// will default to using an output size of
-// DefaultHashSize.
+// Hash is a 256-bit hash function that
+// uses the Gimli permutation.
 type Hash struct {
-	in      int64
-	state   [StateWords]uint32
-	outsize int
+	in    int64
+	state state
+	final state
 }
 
 // NewHash returns a Hash with a 256-bit output.
-func NewHash() *Hash {
-	return &Hash{outsize: DefaultHashSize}
+func NewHash256() *Hash {
+	return &Hash{}
 }
 
-// NewHashSize returns a Hash with the given output size
-// (in bytes). Most users should just use the default size.
-func NewHashSize(size int) *Hash {
-	if size < 1 {
-		panic("invalid hash size")
-	}
-	return &Hash{outsize: size}
-}
+const (
+	rate     = 16
+	hashsize = stateBytes - rate
+)
 
 // BlockSize implements hash.Hash.BlockSize
 //
-// For the Gimli Hash, the block size is 16 bytes.
-func (h *Hash) BlockSize() int { return HashBlockSize }
+// BlockSize always returns 16
+func (h *Hash) BlockSize() int { return rate }
 
 // Size implements hash.Hash.Size.
 //
-// If h is the zero value of Hash, then DefaultHashSize is returned.
-func (h *Hash) Size() int {
-	if h.outsize == 0 {
-		h.outsize = DefaultHashSize
-	}
-	return h.outsize
-}
+// Size always returns 32
+func (h *Hash) Size() int { return hashsize }
 
 // Reset implements hash.Hash.Reset
-//
-// The output size of the hash is preserved when Reset is called.
+// Reset sets h to the zero value of Hash.
 func (h *Hash) Reset() {
-	size := h.outsize
-	*h = Hash{outsize: size}
+	*h = Hash{}
 }
 
 // xor a single byte into the state at a given position
-func xorbyte(dst *[StateWords]uint32, v byte, pos uint) {
-	// TODO: remove endianness assumptions here
-	dst[(pos&^3)>>2] ^= uint32(v) << ((pos & 3) << 3)
+func xorbyte(dst *state, v byte, pos uint) {
+	dst.bytes()[pos] ^= v
 }
 
 // finalize copies the state into a new state that
 // is ready for "squeezing"
-func (h *Hash) finalize(dst *[StateWords]uint32) {
-	copy(dst[:], h.state[:])
+func (h *Hash) finalize() {
+	copy(h.final[:], h.state[:])
 
 	// input gets a trailing ^=0x1f;
 	// last byte of the block gets a trailing ^=0x80
-	xorbyte(dst, 0x1f, uint(h.in&(HashBlockSize-1)))
-	xorbyte(dst, 0x80, HashBlockSize-1)
-	round(dst)
+	xorbyte(&h.final, 0x1f, uint(h.in&(rate-1)))
+	xorbyte(&h.final, 0x80, rate-1)
+	round(&h.final)
 }
 
 // Write implements hash.Hash.Write
@@ -88,12 +65,12 @@ func (h *Hash) Write(b []byte) (int, error) {
 
 	// if the previous write wasn't a multiple
 	// of the hash block size, complete that block
-	if pre := h.in & (HashBlockSize - 1); pre != 0 {
+	if pre := h.in & (rate - 1); pre != 0 {
 		written := int64(0)
 		for i := range b {
 			xorbyte(&h.state, b[i], uint(written+pre))
 			written++
-			if written+pre == HashBlockSize {
+			if written+pre == rate {
 				round(&h.state)
 				break
 			}
@@ -114,46 +91,15 @@ func (h *Hash) Write(b []byte) (int, error) {
 	return l, nil
 }
 
-func put32(dst []byte, v uint32) {
-	binary.LittleEndian.PutUint32(dst, v)
-}
-
-// copy the first 16 bytes of state into dst
-func statehead(dst []byte, state *[StateWords]uint32) {
-	put32(dst[0:], state[0])
-	put32(dst[4:], state[1])
-	put32(dst[8:], state[2])
-	put32(dst[12:], state[3])
-}
-
 // Sum implements hash.Hash.Sum
 //
 // Sum appends h.Size() bytes to b.
 // It does not change the state of h.
 func (h *Hash) Sum(b []byte) []byte {
-	var tmp [StateWords]uint32
-	h.finalize(&tmp)
-
-	outsize := h.Size()
-	aligned := (outsize + HashBlockSize - 1) &^ (HashBlockSize - 1)
-	var outbuf []byte
-	if cap(b) >= aligned {
-		outbuf = b[:aligned]
-	} else {
-		outbuf = make([]byte, aligned)
-	}
-
-	// "squeeze"
-	// copy the first part of the state
-	// into the output and keep permuting
-	// until we've produced enough output
-	off := 0
-	for off < outsize {
-		if off != 0 {
-			round(&tmp)
-		}
-		statehead(outbuf[off:], &tmp)
-		off += HashBlockSize
-	}
-	return append(b, outbuf[:outsize]...)
+	var out [2 * rate]byte
+	h.finalize()
+	copy(out[0:], h.final.bytes()[:rate])
+	round(&h.final)
+	copy(out[rate:], h.final.bytes()[:rate])
+	return append(b, out[:]...)
 }
