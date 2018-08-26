@@ -103,3 +103,24 @@ func (h *Hash) Sum(b []byte) []byte {
 	copy(out[rate:], h.final.bytes()[:rate])
 	return append(b, out[:]...)
 }
+
+func Sum256(b []byte) (sum [32]byte) {
+	var st state
+	aligned := len(b) >> 4
+	if aligned > 0 {
+		hashrounds(&st, b, aligned)
+		b = b[aligned<<4:]
+	}
+	for i := range b {
+		xorbyte(&st, b[i], uint(i))
+	}
+
+	xorbyte(&st, 0x1f, uint(len(b))&(rate-1))
+	xorbyte(&st, 0x80, rate-1)
+	round(&st)
+
+	copy(sum[:], st.bytes()[:rate])
+	round(&st)
+	copy(sum[rate:], st.bytes()[:rate])
+	return sum
+}

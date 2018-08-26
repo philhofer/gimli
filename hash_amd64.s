@@ -54,9 +54,9 @@ GLOBL coeffs<>(SB), RODATA|NOPTR, $96
 // func roundAVX(state *[12]uint32)
 TEXT ·roundAVX(SB),NOSPLIT,$0
 	MOVQ  state+0(FP), SI
-	VMOVDQU 00(SI), X0
-	VMOVDQU 16(SI), X1
-	VMOVDQU 32(SI), X2
+	MOVUPS 00(SI), X0
+	MOVUPS 16(SI), X1
+	MOVUPS 32(SI), X2
 	CALL   gimliregs<>(SB)
 	MOVUPS X0, 00(SI)
 	MOVUPS X1, 16(SI)
@@ -68,9 +68,9 @@ TEXT ·hashroundsAVX(SB),NOSPLIT,$0
 	MOVQ state+0(FP), SI
 	MOVQ src+8(FP), DI
 	MOVQ rounds+32(FP), R9
-	VMOVDQU 00(SI), X0
-	VMOVDQU 16(SI), X1
-	VMOVDQU 32(SI), X2
+	MOVUPS 00(SI), X0
+	MOVUPS 16(SI), X1
+	MOVUPS 32(SI), X2
 	JMP     test
 loop:
 	SUBQ  $1, R9
@@ -80,17 +80,17 @@ loop:
 test:
 	CMPQ R9, $0
 	JNE  loop
-	VMOVDQU X0, 00(SI)
-	VMOVDQU X1, 16(SI)
-	VMOVDQU X2, 32(SI)
+	MOVUPS X0, 00(SI)
+	MOVUPS X1, 16(SI)
+	MOVUPS X2, 32(SI)
 	RET
 
 // in/out: x=X0, y=X1, z=X2
 // clobbers: AX, DX, X*
 TEXT gimliregs<>(SB),NOSPLIT,$0
-	LEAQ  coeffs<>+0(SB), AX
-	LEAQ  -96(AX), DX
-	VMOVDQU shuftab<>+0(SB), X7
+	LEAQ   coeffs<>+0(SB), AX
+	LEAQ   -96(AX), DX
+	MOVUPS shuftab<>+0(SB), X7
 loop:
 	SUBQ $16, AX
 	ROUND(X0, X1, X2, X3, X4, X5)

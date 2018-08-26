@@ -77,6 +77,14 @@ func TestHash(t *testing.T) {
 			t.Error("h.Sum(...) not idempotent")
 		}
 
+		sum := Sum256([]byte(vectors[i].text))
+		if !bytes.Equal(sum[:], wantout) {
+			t.Errorf("Sum256 failed for test vector %d", i)
+			t.Errorf("want: %x", wantout)
+			t.Errorf("got: %x", sum[:])
+			continue
+		}
+
 		// exercise writes at odd alignments
 		for _, size := range []int{
 			1, 3, 7, 9, 13, 15,
@@ -102,7 +110,7 @@ func BenchmarkHash(b *testing.B) {
 	}
 	data := make([]byte, sizes[len(sizes)-1])
 	for _, size := range sizes {
-		b.Run(strconv.Itoa(size), func(b *testing.B) {
+		b.Run("Write" + strconv.Itoa(size), func(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(size))
 			var h Hash
@@ -110,6 +118,13 @@ func BenchmarkHash(b *testing.B) {
 				h.Reset()
 				h.Write(data[:size])
 				h.Sum(data[:0])
+			}
+		})
+		b.Run("Sum" + strconv.Itoa(size), func(b *testing.B) {
+			b.ReportAllocs()
+			b.SetBytes(int64(size))
+			for i := 0; i<b.N; i++ {
+				_ = Sum256(data[:size])
 			}
 		})
 	}
